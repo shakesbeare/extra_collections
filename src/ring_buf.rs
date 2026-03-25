@@ -36,6 +36,9 @@ pub struct RingBuf<T> {
     ptr: NonNull<T>,
 }
 
+unsafe impl<T: Send> Send for RingBuf<T> {}
+unsafe impl<T: Sync> Sync for RingBuf<T> {}
+
 impl<T: std::fmt::Debug> std::fmt::Debug for RingBuf<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_list().entries(self.iter()).finish()

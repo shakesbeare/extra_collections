@@ -14,6 +14,9 @@ pub struct Arr<T, const C: usize> {
     init_ptr: NonNull<bool>,
 }
 
+unsafe impl<T: Send, const C: usize> Send for Arr<T, C> {}
+unsafe impl<T: Sync, const C: usize> Sync for Arr<T, C> {}
+
 impl<T, const C: usize> Arr<T, C> {
     #[inline]
     pub fn new() -> Self {
