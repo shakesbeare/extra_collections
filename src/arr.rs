@@ -7,6 +7,7 @@ use std::alloc;
 /// initialization.
 ///
 /// May be allocated on the stack or the heap.
+#[derive(Debug)]
 pub struct Arr<T, const C: usize> {
     len: usize,
     cap: usize,

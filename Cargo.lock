@@ -4,4 +4,4 @@ version = 4
 
 [[package]]
 name = "extra_collections"
-version = "0.1.1"
+version = "0.1.2"
