@@ -13,6 +13,7 @@ pub struct Arr<T, const C: usize> {
     cap: usize,
     data_ptr: NonNull<MaybeUninit<T>>,
     init_ptr: NonNull<bool>,
+    _stack_allocated: bool,
 }
 
 unsafe impl<T: Send, const C: usize> Send for Arr<T, C> {}
@@ -41,6 +42,7 @@ impl<T, const C: usize> Arr<T, C> {
             cap: C,
             data_ptr,
             init_ptr,
+            _stack_allocated: true,
         }
     }
 
@@ -65,6 +67,7 @@ impl<T, const C: usize> Arr<T, C> {
             cap: C,
             data_ptr,
             init_ptr,
+            _stack_allocated: false,
         }
     }
 
@@ -96,7 +99,10 @@ impl<T, const C: usize> Arr<T, C> {
     pub fn init(&mut self, index: usize, value: T) {
         unsafe {
             self.init_ptr.as_ptr().add(index).write(true);
-            self.data_ptr.as_ptr().add(index).write(MaybeUninit::new(value));
+            self.data_ptr
+                .as_ptr()
+                .add(index)
+                .write(MaybeUninit::new(value));
         }
     }
 
@@ -114,7 +120,23 @@ impl<T, const C: usize> Arr<T, C> {
     pub fn as_raw_slice_mut(&mut self) -> &mut [MaybeUninit<T>] {
         todo!()
     }
+}
 
+impl<T, const C: usize> From<Arr<T, C>> for [T; C] {
+    /// This will always allocate a new array on the stack
+    /// This will panic if not all slots are initialized
+    fn from(value: Arr<T, C>) -> Self {
+        let inits = unsafe { std::slice::from_raw_parts(value.init_ptr.as_ptr(), value.len) };
+        let is_all_init = inits.iter().all(|b| *b);
+        if !is_all_init {
+            panic!("Cannot convert Arr<T, C> to [T; C] unless all elements are initialized");
+        }
+
+        std::array::from_fn(|i| {
+            let ptr = unsafe { value.data_ptr.as_ptr().add(i) };
+            unsafe { ptr.read().assume_init() }
+        })
+    }
 }
 
 impl<T, const C: usize> Default for Arr<T, C> {
@@ -141,10 +163,11 @@ impl<T, const C: usize> std::ops::IndexMut<usize> for Arr<T, C> {
     #[inline]
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         self.get_mut(index).unwrap_or_else(|| {
-            eprintln!("attempted to access uninitialized memory at index {}", index);
-            panic!(
-                "try calling `init()` before attempting to use mutable indexing"
-            )
+            eprintln!(
+                "attempted to access uninitialized memory at index {}",
+                index
+            );
+            panic!("try calling `init()` before attempting to use mutable indexing")
         })
     }
 }
