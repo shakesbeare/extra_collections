@@ -39,6 +39,14 @@ pub struct RingBuf<T> {
 unsafe impl<T: Send> Send for RingBuf<T> {}
 unsafe impl<T: Sync> Sync for RingBuf<T> {}
 
+impl<T: PartialEq> PartialEq for RingBuf<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.iter().eq(other.iter())
+    }
+}
+
+impl<T: Eq> Eq for RingBuf<T> {}
+
 impl<T: std::fmt::Debug> std::fmt::Debug for RingBuf<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_list().entries(self.iter()).finish()
@@ -276,7 +284,7 @@ impl<'a, T> Iterator for RingBufFiniteIterMut<'a, T> {
             //     to be returned multiple times
             let item: &'a mut T = unsafe { std::mem::transmute(self.buf.get_mut(self.cur)?) };
             self.cur += 1;
-            return Some(item);
+            Some(item)
         } else {
             None
         }
@@ -296,7 +304,7 @@ impl<'a, T> Iterator for RingBufFiniteIter<'a, T> {
         if self.cur < self.buf.len() {
             let item = self.buf.get(self.cur)?;
             self.cur += 1;
-            return Some(item);
+            Some(item)
         } else {
             None
         }
@@ -431,5 +439,35 @@ mod tests {
         let iter: RingBufFiniteIntoIter<u8> = buf.into_iter();
         let actual: Vec<u8> = iter.collect();
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn partial_eq() {
+        let mut buf = RingBuf::new(5);
+        for i in 0..5 {
+            buf.push(i);
+        }
+        
+        let mut other = RingBuf::new(5);
+        for i in 0..5 {
+            other.push(i);
+        }
+
+        assert!(buf == other);
+    }
+
+    #[test]
+    fn partial_neq() {
+        let mut buf = RingBuf::new(5);
+        for i in 0..5 {
+            buf.push(i);
+        }
+        
+        let mut other = RingBuf::new(5);
+        for i in 1..6 {
+            other.push(i);
+        }
+
+        assert!(buf != other);
     }
 }
