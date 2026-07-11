@@ -205,6 +205,11 @@ impl<T> RingBuf<T> {
         RingBufFiniteIterMut { buf: self, cur: 0 }
     }
 
+    #[inline]
+    pub fn inf<'a>(&'a self) -> RingBufInfiniteIter<'a, T> {
+        RingBufInfiniteIter { buf: self, cur: 0 }
+    }
+
     /// Order of elements and starting point are preserved at the cost of an allocation
     #[inline]
     pub fn into_new_slice(self) -> Box<[T]> {
@@ -288,6 +293,20 @@ impl<'a, T> Iterator for RingBufFiniteIterMut<'a, T> {
         } else {
             None
         }
+    }
+}
+
+pub struct RingBufInfiniteIter<'a, T> {
+    buf: &'a RingBuf<T>,
+    cur: usize,
+}
+
+impl<'a, T> Iterator for RingBufInfiniteIter<'a, T> {
+    type Item = &'a T;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.buf.get(self.cur % self.buf.len())
     }
 }
 
@@ -447,7 +466,7 @@ mod tests {
         for i in 0..5 {
             buf.push(i);
         }
-        
+
         let mut other = RingBuf::new(5);
         for i in 0..5 {
             other.push(i);
@@ -462,7 +481,7 @@ mod tests {
         for i in 0..5 {
             buf.push(i);
         }
-        
+
         let mut other = RingBuf::new(5);
         for i in 1..6 {
             other.push(i);
