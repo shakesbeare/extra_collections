@@ -1,4 +1,5 @@
 use std::alloc::{self, Layout};
+use std::marker::PhantomData;
 use std::mem;
 use std::ptr::{self, NonNull};
 
@@ -206,8 +207,8 @@ impl<T> RingBuf<T> {
     }
 
     #[inline]
-    pub fn inf<'a>(&'a self) -> RingBufInfiniteIter<'a, T> {
-        RingBufInfiniteIter { buf: self, cur: 0 }
+    pub fn inf<'a>(self) -> RingBufInfiniteIter<'a, T> {
+        RingBufInfiniteIter { buf: self, cur: 0, marker: &PhantomData }
     }
 
     /// Order of elements and starting point are preserved at the cost of an allocation
@@ -297,8 +298,9 @@ impl<'a, T> Iterator for RingBufFiniteIterMut<'a, T> {
 }
 
 pub struct RingBufInfiniteIter<'a, T> {
-    buf: &'a RingBuf<T>,
+    buf: RingBuf<T>,
     cur: usize,
+    marker: &'a PhantomData<T>,
 }
 
 impl<'a, T> Iterator for RingBufInfiniteIter<'a, T> {
@@ -306,7 +308,24 @@ impl<'a, T> Iterator for RingBufInfiniteIter<'a, T> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        self.buf.get(self.cur % self.buf.len())
+        // SAFETY:
+        //     these references are guaranteed to live exactly as long as the struct itself
+        //     not sure why rust doesn't know that
+        #[allow(clippy::missing_transmute_annotations)]
+        let item = unsafe { std::mem::transmute(self.buf.get(self.cur)) };
+        self.cur += 1;
+        self.cur %= self.buf.len();
+        item
+    }
+}
+
+impl<'a, T> RingBufInfiniteIter<'a, T> {
+    pub fn inner(&self) -> &RingBuf<T> {
+        &self.buf
+    }
+
+    pub fn inner_mut(&mut self) -> &mut RingBuf<T> {
+        &mut self.buf
     }
 }
 
